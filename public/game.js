@@ -207,6 +207,23 @@ class MonopolyGame {
             this.updateMyProperties();
             this.addGameMessage(data.message, true);
         });
+        
+        this.socket.on('auctionCancelled', (data) => {
+            this.hideAuctionModal();
+            this.addGameMessage(data.message, true);
+        });
+        
+        this.socket.on('disconnect', () => {
+            // Ocultar modal de subasta si está abierto
+            if (this.currentAuction) {
+                this.hideAuctionModal();
+                this.addGameMessage('Conexión perdida - subasta cancelada', true);
+            }
+        });
+        
+        this.socket.on('reconnect', () => {
+            this.addGameMessage('Reconectado al servidor', true);
+        });
 
         this.socket.on('error', (message) => {
             alert(message);
@@ -657,8 +674,15 @@ class MonopolyGame {
     }
     
     hideAuctionModal() {
-        this.auctionModal.classList.add('hidden');
+        if (this.auctionModal) {
+            this.auctionModal.classList.add('hidden');
+        }
         this.currentAuction = null;
+        
+        // Limpiar campos de oferta
+        if (this.bidAmount) {
+            this.bidAmount.value = '';
+        }
     }
     
     updateAuctionDisplay(data) {
@@ -675,6 +699,8 @@ class MonopolyGame {
     }
     
     updateAuctionTimer(timeLeft) {
+        if (!this.timeLeft || !this.currentAuction) return;
+        
         this.timeLeft.textContent = `${timeLeft}s`;
         
         // Agregar clase urgente si quedan menos de 10 segundos
@@ -683,16 +709,29 @@ class MonopolyGame {
         } else {
             this.timeLeft.classList.remove('urgent');
         }
+        
+        // Auto-cerrar si el tiempo se agota y no hay respuesta del servidor
+        if (timeLeft <= 0) {
+            setTimeout(() => {
+                if (this.currentAuction) {
+                    this.hideAuctionModal();
+                    this.addGameMessage('Subasta finalizada por tiempo agotado', true);
+                }
+            }, 2000);
+        }
     }
     
     submitBid() {
-        if (!this.currentAuction || !this.currentPlayer) return;
+        if (!this.currentAuction || !this.currentPlayer || !this.currentRoom) {
+            this.addGameMessage('Error: No se puede realizar la oferta en este momento', true);
+            return;
+        }
         
         const amount = parseInt(this.bidAmount.value);
         const minBid = this.currentAuction.currentBid + 100;
         
-        if (!amount || amount < minBid) {
-            alert(`La oferta mínima es $${minBid}`);
+        if (!amount || isNaN(amount) || amount < minBid) {
+            alert(`La oferta mínima es $${minBid.toLocaleString()}`);
             return;
         }
         
@@ -701,10 +740,20 @@ class MonopolyGame {
             return;
         }
         
+        // Deshabilitar botón temporalmente para evitar doble envío
+        this.placeBid.disabled = true;
+        
         this.socket.emit('placeBid', {
             roomCode: this.currentRoom.code,
             amount: amount
         });
+        
+        // Rehabilitar botón después de un segundo
+        setTimeout(() => {
+            if (this.placeBid) {
+                this.placeBid.disabled = false;
+            }
+        }, 1000);
     }
     
     showAuctionNotification(message) {

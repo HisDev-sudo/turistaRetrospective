@@ -116,7 +116,9 @@ function createRoom(hostName, socketId) {
         currentPlayer: 0,
         board: boardSpaces,
         turnCount: 0,
-        mortgageQueue: [] // {propertyId, ownerId, turnMortgaged}
+        individualTurnCount: 0, // Contador individual de turnos
+        mortgageQueue: [], // {propertyId, ownerId, turnMortgaged}
+        activeAuctionTimer: null // Referencia al timer activo
     };
     rooms.set(roomCode, room);
     return room;
@@ -306,16 +308,21 @@ io.on('connection', (socket) => {
             currentPlayer.jailed = true;
         }
 
+        // Incrementar contador individual de turnos
+        room.individualTurnCount++;
+        
         // Siguiente turno - saltar jugadores eliminados
         do {
             room.currentPlayer = (room.currentPlayer + 1) % room.players.length;
         } while (room.players[room.currentPlayer].eliminated);
         
-        // Incrementar contador de turnos cuando vuelve al primer jugador
+        // Incrementar contador de rondas cuando vuelve al primer jugador
         if (room.currentPlayer === 0) {
             room.turnCount++;
-            checkAuctions(room);
         }
+        
+        // Verificar subastas después de cada turno individual
+        checkAuctions(room);
 
         io.to(roomCode).emit('diceRolled', { 
             dice1, dice2, total, 
@@ -347,10 +354,40 @@ io.on('connection', (socket) => {
     
     socket.on('placeBid', ({ roomCode, amount }) => {
         const room = rooms.get(roomCode);
-        if (!room || !room.currentAuction) return;
+        if (!room || !room.currentAuction || room.gameState !== 'playing') {
+            socket.emit('error', 'Subasta no disponible');
+            return;
+        }
         
         const player = room.players.find(p => p.id === socket.id);
-        if (!player || player.money < amount || amount <= room.currentAuction.currentBid) return;
+        if (!player || player.eliminated) {
+            socket.emit('error', 'Jugador no válido');
+            return;
+        }
+        
+        // Validar que no sea el propietario original
+        if (player.id === room.currentAuction.originalOwner) {
+            socket.emit('error', 'No puedes ofertar por tu propia propiedad');
+            return;
+        }
+        
+        // Validar monto
+        const minBid = room.currentAuction.currentBid + 100;
+        if (!amount || isNaN(amount) || amount < minBid) {
+            socket.emit('error', `La oferta mínima es $${minBid}`);
+            return;
+        }
+        
+        if (player.money < amount) {
+            socket.emit('error', 'Dinero insuficiente');
+            return;
+        }
+        
+        // Validar que la subasta siga activa
+        if (room.currentAuction.timeLeft <= 0) {
+            socket.emit('error', 'Subasta finalizada');
+            return;
+        }
         
         room.currentAuction.currentBid = amount;
         room.currentAuction.highestBidder = socket.id;
@@ -377,12 +414,12 @@ io.on('connection', (socket) => {
                 totalValue += mortgageValue;
                 player.mortgaged.push(propId);
                 
-                // Agregar a la cola de subastas
+                // Agregar a la cola de subastas (10 turnos individuales después)
                 room.mortgageQueue.push({
                     propertyId: propId,
                     ownerId: player.id,
-                    turnMortgaged: room.turnCount,
-                    auctionTurn: room.turnCount + 10
+                    turnMortgaged: room.individualTurnCount,
+                    auctionTurn: room.individualTurnCount + 10
                 });
             }
         });
@@ -412,12 +449,12 @@ io.on('connection', (socket) => {
                     totalMortgageValue += mortgageValue;
                     player.mortgaged.push(propId);
                     
-                    // Agregar a la cola de subastas
+                    // Agregar a la cola de subastas (10 turnos individuales después)
                     room.mortgageQueue.push({
                         propertyId: propId,
                         ownerId: player.id,
-                        turnMortgaged: room.turnCount,
-                        auctionTurn: room.turnCount + 10
+                        turnMortgaged: room.individualTurnCount,
+                        auctionTurn: room.individualTurnCount + 10
                     });
                 });
                 
@@ -467,7 +504,9 @@ io.on('connection', (socket) => {
     }
     
     function checkAuctions(room) {
-        const currentTurn = room.turnCount;
+        if (!room || room.gameState !== 'playing') return;
+        
+        const currentTurn = room.individualTurnCount;
         const auctionsToProcess = room.mortgageQueue.filter(item => 
             item.auctionTurn <= currentTurn
         );
@@ -483,6 +522,11 @@ io.on('connection', (socket) => {
     }
     
     function startAuction(room, auction) {
+        // Validar que la sala y el juego sigan activos
+        if (!room || room.gameState !== 'playing' || room.currentAuction) {
+            return; // Ya hay una subasta activa o el juego no está en curso
+        }
+        
         const property = boardSpaces[auction.propertyId];
         const owner = room.players.find(p => p.id === auction.ownerId);
         
@@ -497,7 +541,7 @@ io.on('connection', (socket) => {
             propertyName: property.name,
             currentBid: startingBid,
             highestBidder: null,
-            participants: room.players.filter(p => p.id !== auction.ownerId),
+            participants: room.players.filter(p => p.id !== auction.ownerId && !p.eliminated),
             timeLeft: 30, // 30 segundos
             originalOwner: auction.ownerId
         };
@@ -508,12 +552,25 @@ io.on('connection', (socket) => {
             room
         });
         
-        // Timer de subasta
-        const auctionTimer = setInterval(() => {
+        // Limpiar timer anterior si existe
+        if (room.activeAuctionTimer) {
+            clearInterval(room.activeAuctionTimer);
+        }
+        
+        // Timer de subasta con validaciones
+        room.activeAuctionTimer = setInterval(() => {
+            // Validar que la sala y subasta sigan existiendo
+            if (!room || !room.currentAuction || room.gameState !== 'playing') {
+                clearInterval(room.activeAuctionTimer);
+                room.activeAuctionTimer = null;
+                return;
+            }
+            
             room.currentAuction.timeLeft--;
             
             if (room.currentAuction.timeLeft <= 0) {
-                clearInterval(auctionTimer);
+                clearInterval(room.activeAuctionTimer);
+                room.activeAuctionTimer = null;
                 endAuction(room);
             } else {
                 io.to(room.code).emit('auctionUpdate', {
@@ -524,29 +581,55 @@ io.on('connection', (socket) => {
     }
     
     function endAuction(room) {
+        // Validar que la sala y subasta sigan existiendo
+        if (!room || !room.currentAuction || room.gameState !== 'playing') {
+            return;
+        }
+        
         const auction = room.currentAuction;
         const property = boardSpaces[auction.propertyId];
         const originalOwner = room.players.find(p => p.id === auction.originalOwner);
         
+        // Validar que el propietario original siga en el juego
+        if (!originalOwner) {
+            room.currentAuction = null;
+            return;
+        }
+        
         if (auction.highestBidder) {
             const winner = room.players.find(p => p.id === auction.highestBidder);
             
-            // Transferir propiedad
-            originalOwner.properties = originalOwner.properties.filter(id => id !== auction.propertyId);
-            originalOwner.mortgaged = originalOwner.mortgaged.filter(id => id !== auction.propertyId);
-            winner.properties.push(auction.propertyId);
-            
-            // Transferir dinero
-            winner.money -= auction.currentBid;
-            originalOwner.money += auction.currentBid;
-            
-            io.to(room.code).emit('auctionEnded', {
-                winner: winner.name,
-                property: property.name,
-                amount: auction.currentBid,
-                message: `🎉 ${winner.name} ganó la subasta de ${property.name} por $${auction.currentBid}`,
-                room
-            });
+            // Validar que el ganador siga en el juego y tenga dinero suficiente
+            if (winner && !winner.eliminated && winner.money >= auction.currentBid) {
+                // Transferir propiedad
+                originalOwner.properties = originalOwner.properties.filter(id => id !== auction.propertyId);
+                originalOwner.mortgaged = originalOwner.mortgaged.filter(id => id !== auction.propertyId);
+                winner.properties.push(auction.propertyId);
+                
+                // Transferir dinero
+                winner.money -= auction.currentBid;
+                originalOwner.money += auction.currentBid;
+                
+                io.to(room.code).emit('auctionEnded', {
+                    winner: winner.name,
+                    property: property.name,
+                    amount: auction.currentBid,
+                    message: `🎉 ${winner.name} ganó la subasta de ${property.name} por $${auction.currentBid}`,
+                    room
+                });
+            } else {
+                // El ganador ya no puede pagar - propiedad vuelve al banco
+                originalOwner.properties = originalOwner.properties.filter(id => id !== auction.propertyId);
+                originalOwner.mortgaged = originalOwner.mortgaged.filter(id => id !== auction.propertyId);
+                
+                io.to(room.code).emit('auctionEnded', {
+                    winner: null,
+                    property: property.name,
+                    amount: 0,
+                    message: `📋 ${property.name} vuelve al banco - el ganador no pudo pagar`,
+                    room
+                });
+            }
         } else {
             // Sin ofertas - la propiedad vuelve al banco
             originalOwner.properties = originalOwner.properties.filter(id => id !== auction.propertyId);
@@ -570,8 +653,22 @@ io.on('connection', (socket) => {
         for (const [code, room] of rooms.entries()) {
             const playerIndex = room.players.findIndex(p => p.id === socket.id);
             if (playerIndex !== -1) {
+                // Limpiar timer de subasta si el jugador desconectado tenía una activa
+                if (room.activeAuctionTimer && room.currentAuction) {
+                    clearInterval(room.activeAuctionTimer);
+                    room.activeAuctionTimer = null;
+                    room.currentAuction = null;
+                    io.to(code).emit('auctionCancelled', {
+                        message: 'Subasta cancelada por desconexión de jugador'
+                    });
+                }
+                
                 room.players.splice(playerIndex, 1);
                 if (room.players.length === 0) {
+                    // Limpiar timer antes de eliminar la sala
+                    if (room.activeAuctionTimer) {
+                        clearInterval(room.activeAuctionTimer);
+                    }
                     rooms.delete(code);
                 } else {
                     io.to(code).emit('playerLeft', { room });
