@@ -438,12 +438,12 @@ io.on('connection', (socket) => {
                 totalValue += mortgageValue;
                 player.mortgaged.push(propId);
                 
-                // Agregar a la cola de subastas (10 turnos individuales después)
+                // Agregar a la cola de subastas (3 turnos individuales después)
                 room.mortgageQueue.push({
                     propertyId: propId,
                     ownerId: player.id,
                     turnMortgaged: room.individualTurnCount,
-                    auctionTurn: room.individualTurnCount + 10
+                    auctionTurn: room.individualTurnCount + 3
                 });
             }
         });
@@ -473,12 +473,12 @@ io.on('connection', (socket) => {
                     totalMortgageValue += mortgageValue;
                     player.mortgaged.push(propId);
                     
-                    // Agregar a la cola de subastas (10 turnos individuales después)
+                    // Agregar a la cola de subastas (3 turnos individuales después)
                     room.mortgageQueue.push({
                         propertyId: propId,
                         ownerId: player.id,
                         turnMortgaged: room.individualTurnCount,
-                        auctionTurn: room.individualTurnCount + 10
+                        auctionTurn: room.individualTurnCount + 3
                     });
                 });
                 
@@ -591,7 +591,7 @@ io.on('connection', (socket) => {
             currentBid: startingBid,
             highestBidder: null,
             participants: room.players.filter(p => p.id !== auction.ownerId && !p.eliminated),
-            timeLeft: 30, // 30 segundos
+            timeLeft: 60, // 60 segundos
             originalOwner: auction.ownerId
         };
         

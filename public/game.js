@@ -725,15 +725,7 @@ class MonopolyGame {
             this.timeLeft.classList.remove('urgent');
         }
         
-        // Auto-cerrar si el tiempo se agota y no hay respuesta del servidor
-        if (timeLeft <= 0) {
-            setTimeout(() => {
-                if (this.currentAuction) {
-                    this.hideAuctionModal();
-                    this.addGameMessage('Subasta finalizada por tiempo agotado', true);
-                }
-            }, 2000);
-        }
+        // El servidor maneja el cierre de la subasta
     }
     
     submitBid() {
