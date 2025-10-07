@@ -109,7 +109,8 @@ function createRoom(hostName, socketId) {
             mortgaged: [],
             isHost: true,
             color: '#FF6B6B',
-            jailed: false
+            jailed: false,
+            eliminated: false
         }],
         gameState: 'waiting',
         currentPlayer: 0,
@@ -155,7 +156,8 @@ io.on('connection', (socket) => {
             mortgaged: [],
             isHost: false,
             color: colors[room.players.length],
-            jailed: false
+            jailed: false,
+            eliminated: false
         };
 
         room.players.push(player);
@@ -238,6 +240,11 @@ io.on('connection', (socket) => {
                 currentPlayer.money -= rentAmount;
                 owner.money += rentAmount;
                 message += `. Paga $${rentAmount} a ${owner.name}`;
+                
+                // Verificar bancarrota después del pago
+                if (currentPlayer.money < 0) {
+                    handleBankruptcy(room, currentPlayer);
+                }
             }
         } else if (currentSpace.type === 'card') {
             let cards, cardName;
@@ -260,6 +267,9 @@ io.on('connection', (socket) => {
             } else if (card.includes('Paga $')) {
                 const amount = parseInt(card.match(/Paga \$([\d,]+)/)[1].replace(',', ''));
                 currentPlayer.money -= amount;
+                if (currentPlayer.money < 0) {
+                    handleBankruptcy(room, currentPlayer);
+                }
             } else if (card.includes('Cobra $')) {
                 const amount = parseInt(card.match(/Cobra \$([\d,]+)/)[1].replace(',', ''));
                 currentPlayer.money += amount;
@@ -269,12 +279,18 @@ io.on('connection', (socket) => {
                 currentPlayer.jailed = true;
                 const amount = parseInt(card.match(/Paga \$([\d,]+)/)[1].replace(',', ''));
                 currentPlayer.money -= amount;
+                if (currentPlayer.money < 0) {
+                    handleBankruptcy(room, currentPlayer);
+                }
             } else if (card.includes('Todos pagan $')) {
                 const amount = parseInt(card.match(/Todos pagan \$([\d,]+)/)[1].replace(',', ''));
                 room.players.forEach(p => {
                     if (p.id !== currentPlayer.id) {
                         p.money -= amount;
                         currentPlayer.money += amount;
+                        if (p.money < 0) {
+                            handleBankruptcy(room, p);
+                        }
                     }
                 });
             }
@@ -290,8 +306,10 @@ io.on('connection', (socket) => {
             currentPlayer.jailed = true;
         }
 
-        // Siguiente turno
-        room.currentPlayer = (room.currentPlayer + 1) % room.players.length;
+        // Siguiente turno - saltar jugadores eliminados
+        do {
+            room.currentPlayer = (room.currentPlayer + 1) % room.players.length;
+        } while (room.players[room.currentPlayer].eliminated);
         
         // Incrementar contador de turnos cuando vuelve al primer jugador
         if (room.currentPlayer === 0) {
@@ -379,28 +397,73 @@ io.on('connection', (socket) => {
         });
     });
     
-    function checkNegativeMoney(room, player) {
+    function handleBankruptcy(room, player) {
         if (player.money < 0) {
             const availableProperties = player.properties.filter(propId => 
                 !player.mortgaged.includes(propId)
             );
             
             if (availableProperties.length > 0) {
-                io.to(player.id).emit('needMortgage', {
-                    neededAmount: Math.abs(player.money),
-                    availableProperties
+                // Hipotecar automáticamente todas las propiedades disponibles
+                let totalMortgageValue = 0;
+                availableProperties.forEach(propId => {
+                    const property = boardSpaces[propId];
+                    const mortgageValue = Math.floor(property.price / 2);
+                    totalMortgageValue += mortgageValue;
+                    player.mortgaged.push(propId);
+                    
+                    // Agregar a la cola de subastas
+                    room.mortgageQueue.push({
+                        propertyId: propId,
+                        ownerId: player.id,
+                        turnMortgaged: room.turnCount,
+                        auctionTurn: room.turnCount + 10
+                    });
                 });
-                return false; // Bloquear hasta que hipoteque
-            } else {
-                // Jugador en bancarrota
-                io.to(room.code).emit('playerBankrupt', {
+                
+                player.money += totalMortgageValue;
+                
+                io.to(room.code).emit('autoMortgage', {
                     player: player.name,
+                    properties: availableProperties,
+                    amount: totalMortgageValue,
+                    message: `${player.name} hipotecó automáticamente ${availableProperties.length} propiedades por $${totalMortgageValue}`,
                     room
                 });
-                return true;
+                
+                // Si aún está en negativo después de hipotecar todo
+                if (player.money < 0) {
+                    eliminatePlayer(room, player);
+                }
+            } else {
+                // No tiene propiedades para hipotecar - eliminación
+                eliminatePlayer(room, player);
             }
         }
-        return true;
+    }
+    
+    function eliminatePlayer(room, player) {
+        // Liberar todas las propiedades al banco
+        player.properties = [];
+        player.mortgaged = [];
+        player.money = 0;
+        player.eliminated = true;
+        
+        io.to(room.code).emit('playerEliminated', {
+            player: player.name,
+            message: `💸 ${player.name} ha sido eliminado por bancarrota`,
+            room
+        });
+        
+        // Verificar si solo queda un jugador
+        const activePlayers = room.players.filter(p => !p.eliminated);
+        if (activePlayers.length === 1) {
+            io.to(room.code).emit('gameWon', {
+                winner: activePlayers[0].name,
+                message: `🏆 ¡${activePlayers[0].name} ha ganado el juego!`,
+                room
+            });
+        }
     }
     
     function checkAuctions(room) {
