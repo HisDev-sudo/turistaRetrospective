@@ -516,6 +516,33 @@ input:focus {
     to { transform: translateX(0); opacity: 1; }
 }
 
+/* Modal de carta */
+.card-modal {
+    max-width: 500px;
+    text-align: center;
+}
+
+.card-content {
+    background: #f7fafc;
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin: 1.5rem 0;
+    border-left: 4px solid #667eea;
+}
+
+#cardPlayer {
+    font-weight: bold;
+    color: #2d3748;
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+}
+
+#cardMessage {
+    font-size: 1rem;
+    line-height: 1.5;
+    color: #4a5568;
+}
+
 .players-info, .game-log {
     margin-bottom: 2rem;
 }

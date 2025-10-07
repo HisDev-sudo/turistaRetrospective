@@ -72,6 +72,14 @@ class MonopolyGame {
         this.placeBid = document.getElementById('placeBid');
         this.currentAuction = null;
         
+        // Modal de carta
+        this.cardModal = document.getElementById('cardModal');
+        this.closeCardModal = document.getElementById('closeCardModal');
+        this.cardTitle = document.getElementById('cardTitle');
+        this.cardPlayer = document.getElementById('cardPlayer');
+        this.cardMessage = document.getElementById('cardMessage');
+        this.closeCardBtn = document.getElementById('closeCardBtn');
+        
         // Debug
         console.log('Botón de dados encontrado:', this.rollDiceBtn);
     }
@@ -109,6 +117,13 @@ class MonopolyGame {
         this.placeBid.addEventListener('click', () => this.submitBid());
         this.bidAmount.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.submitBid();
+        });
+        
+        // Card modal events
+        this.closeCardModal.addEventListener('click', () => this.hideCardModal());
+        this.closeCardBtn.addEventListener('click', () => this.hideCardModal());
+        this.cardModal.addEventListener('click', (e) => {
+            if (e.target === this.cardModal) this.hideCardModal();
         });
         
         // Enter key handlers
@@ -233,6 +248,10 @@ class MonopolyGame {
         
         this.socket.on('reconnect', () => {
             this.addGameMessage('Reconectado al servidor', true);
+        });
+        
+        this.socket.on('cardDrawn', (data) => {
+            this.showCardModal(data);
         });
 
         this.socket.on('error', (message) => {
@@ -773,6 +792,17 @@ class MonopolyGame {
         setTimeout(() => {
             notification.remove();
         }, 5000);
+    }
+    
+    showCardModal(data) {
+        this.cardTitle.textContent = `📧 ${data.cardType.charAt(0).toUpperCase() + data.cardType.slice(1)}`;
+        this.cardPlayer.textContent = `${data.player} sacó:`;
+        this.cardMessage.textContent = data.card;
+        this.cardModal.classList.remove('hidden');
+    }
+    
+    hideCardModal() {
+        this.cardModal.classList.add('hidden');
     }
 }
 

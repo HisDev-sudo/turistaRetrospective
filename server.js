@@ -264,6 +264,13 @@ io.on('connection', (socket) => {
             }
             const card = cards[Math.floor(Math.random() * cards.length)];
             
+            // Mostrar carta a todos los jugadores
+            io.to(roomCode).emit('cardDrawn', {
+                player: currentPlayer.name,
+                card: card,
+                cardType: currentSpace.cardType
+            });
+            
             // Procesar efectos de las cartas
             if (card.includes('Gana $')) {
                 const amount = parseInt(card.match(/Gana \$([\d,]+)/)[1].replace(',', ''));

@@ -140,6 +140,19 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Modal de carta de correo -->
+        <div id="cardModal" class="modal hidden">
+            <div class="modal-content card-modal">
+                <span class="close-modal" id="closeCardModal">&times;</span>
+                <h2 id="cardTitle">📧 Abre un Email</h2>
+                <div class="card-content">
+                    <div id="cardPlayer"></div>
+                    <div id="cardMessage"></div>
+                </div>
+                <button id="closeCardBtn" class="btn primary">Cerrar</button>
+            </div>
+        </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
