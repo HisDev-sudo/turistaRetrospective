@@ -64,14 +64,24 @@
                 
                 <!-- Panel lateral -->
                 <div class="sidebar">
-                    <div class="players-info">
-                        <h3>Jugadores</h3>
-                        <div id="gamePlayersList"></div>
+                    <div class="sidebar-tabs">
+                        <button class="tab-btn active" data-tab="players">👥 Jugadores</button>
+                        <button class="tab-btn" data-tab="properties">🏠 Mis Propiedades</button>
+                        <button class="tab-btn" data-tab="activity">📋 Actividad</button>
                     </div>
                     
-                    <div class="game-log">
-                        <h3>📋 Actividad del Juego</h3>
-                        <div id="gameMessages"></div>
+                    <div class="tab-content">
+                        <div id="playersTab" class="tab-panel active">
+                            <div id="gamePlayersList"></div>
+                        </div>
+                        
+                        <div id="propertiesTab" class="tab-panel">
+                            <div id="myProperties"></div>
+                        </div>
+                        
+                        <div id="activityTab" class="tab-panel">
+                            <div id="gameMessages"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -87,6 +97,20 @@
                     <div id="modalSpaceDetails"></div>
                     <div id="modalSpaceOwner"></div>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Modal para hipotecar propiedades -->
+        <div id="mortgageModal" class="modal hidden">
+            <div class="modal-content">
+                <h2>🏦 Hipotecar Propiedades</h2>
+                <p>Tu dinero es insuficiente. Debes hipotecar propiedades para continuar:</p>
+                <div id="mortgageProperties"></div>
+                <div class="mortgage-info">
+                    <p><strong>Dinero necesario:</strong> $<span id="neededAmount"></span></p>
+                    <p><strong>Dinero obtenido:</strong> $<span id="mortgageAmount">0</span></p>
+                </div>
+                <button id="confirmMortgage" class="btn primary" disabled>Confirmar Hipoteca</button>
             </div>
         </div>
     </div>

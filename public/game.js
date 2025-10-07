@@ -47,6 +47,19 @@ class MonopolyGame {
         this.modalSpaceOwner = document.getElementById('modalSpaceOwner');
         this.modalSpaceImage = document.querySelector('.modal-space-image');
         
+        // Pestañas
+        this.tabBtns = document.querySelectorAll('.tab-btn');
+        this.tabPanels = document.querySelectorAll('.tab-panel');
+        this.myProperties = document.getElementById('myProperties');
+        
+        // Modal de hipoteca
+        this.mortgageModal = document.getElementById('mortgageModal');
+        this.mortgageProperties = document.getElementById('mortgageProperties');
+        this.neededAmount = document.getElementById('neededAmount');
+        this.mortgageAmount = document.getElementById('mortgageAmount');
+        this.confirmMortgage = document.getElementById('confirmMortgage');
+        this.selectedMortgages = [];
+        
         // Debug
         console.log('Botón de dados encontrado:', this.rollDiceBtn);
     }
@@ -72,6 +85,14 @@ class MonopolyGame {
         this.spaceModal.addEventListener('click', (e) => {
             if (e.target === this.spaceModal) this.hideSpaceModal();
         });
+        
+        // Tab events
+        this.tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => this.switchTab(btn.dataset.tab));
+        });
+        
+        // Mortgage events
+        this.confirmMortgage.addEventListener('click', () => this.processMortgage());
         
         // Enter key handlers
         this.playerNameInput.addEventListener('keypress', (e) => {
@@ -126,6 +147,21 @@ class MonopolyGame {
             this.currentRoom = data.room;
             this.updatePlayersList();
             this.updateGamePlayers();
+        });
+        
+        this.socket.on('needMortgage', (data) => {
+            this.showMortgageModal(data.neededAmount);
+        });
+        
+        this.socket.on('propertiesMortgaged', (data) => {
+            this.currentRoom = data.room;
+            this.updateGamePlayers();
+            this.updateMyProperties();
+            this.addGameMessage(`💰 ${data.player.name} hipotecó propiedades por $${data.amount}`, true);
+        });
+        
+        this.socket.on('playerBankrupt', (data) => {
+            this.addGameMessage(`💸 ${data.player} está en bancarrota y sale del juego`, true);
         });
 
         this.socket.on('error', (message) => {
@@ -393,7 +429,11 @@ class MonopolyGame {
         `;
         
         this.gameMessages.appendChild(messageDiv);
-        this.gameMessages.scrollTop = this.gameMessages.scrollHeight;
+        
+        // Auto-scroll suave
+        setTimeout(() => {
+            this.gameMessages.scrollTop = this.gameMessages.scrollHeight;
+        }, 100);
         
         // Limitar mensajes a 50
         const messages = this.gameMessages.children;
@@ -444,6 +484,124 @@ class MonopolyGame {
     
     hideSpaceModal() {
         this.spaceModal.classList.add('hidden');
+    }
+    
+    switchTab(tabName) {
+        // Actualizar botones
+        this.tabBtns.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tabName);
+        });
+        
+        // Actualizar paneles
+        this.tabPanels.forEach(panel => {
+            panel.classList.toggle('active', panel.id === tabName + 'Tab');
+        });
+        
+        // Actualizar contenido si es necesario
+        if (tabName === 'properties') {
+            this.updateMyProperties();
+        }
+    }
+    
+    updateMyProperties() {
+        if (!this.currentPlayer) return;
+        
+        this.myProperties.innerHTML = '';
+        
+        if (this.currentPlayer.properties.length === 0) {
+            this.myProperties.innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">No tienes propiedades aún</p>';
+            return;
+        }
+        
+        this.currentPlayer.properties.forEach(propId => {
+            const property = this.currentRoom.board[propId];
+            const isMortgaged = this.currentPlayer.mortgaged && this.currentPlayer.mortgaged.includes(propId);
+            
+            const propDiv = document.createElement('div');
+            propDiv.className = `property-item ${isMortgaged ? 'mortgaged' : ''}`;
+            propDiv.innerHTML = `
+                <div class="property-info">
+                    <div class="property-name">${property.name} ${isMortgaged ? '(Hipotecada)' : ''}</div>
+                    <div class="property-rent">Renta: $${property.rent === 'special' ? 'Especial' : property.rent}</div>
+                </div>
+                <div class="property-value">$${Math.floor(property.price / 2)}</div>
+            `;
+            this.myProperties.appendChild(propDiv);
+        });
+    }
+    
+    showMortgageModal(neededMoney) {
+        if (!this.currentPlayer || this.currentPlayer.properties.length === 0) {
+            alert('No tienes propiedades para hipotecar');
+            return;
+        }
+        
+        this.neededAmount.textContent = neededMoney;
+        this.mortgageAmount.textContent = '0';
+        this.selectedMortgages = [];
+        
+        this.mortgageProperties.innerHTML = '';
+        
+        this.currentPlayer.properties.forEach(propId => {
+            const property = this.currentRoom.board[propId];
+            const isMortgaged = this.currentPlayer.mortgaged && this.currentPlayer.mortgaged.includes(propId);
+            
+            if (!isMortgaged) {
+                const mortgageValue = Math.floor(property.price / 2);
+                const propDiv = document.createElement('div');
+                propDiv.className = 'mortgage-property';
+                propDiv.innerHTML = `
+                    <input type="checkbox" class="mortgage-checkbox" data-prop-id="${propId}" data-value="${mortgageValue}">
+                    <div class="property-info">
+                        <div class="property-name">${property.name}</div>
+                        <div class="property-rent">Valor hipoteca: $${mortgageValue}</div>
+                    </div>
+                `;
+                
+                const checkbox = propDiv.querySelector('.mortgage-checkbox');
+                checkbox.addEventListener('change', () => this.updateMortgageSelection());
+                
+                this.mortgageProperties.appendChild(propDiv);
+            }
+        });
+        
+        this.mortgageModal.classList.remove('hidden');
+    }
+    
+    updateMortgageSelection() {
+        const checkboxes = this.mortgageProperties.querySelectorAll('.mortgage-checkbox:checked');
+        let totalValue = 0;
+        this.selectedMortgages = [];
+        
+        checkboxes.forEach(cb => {
+            const propId = parseInt(cb.dataset.propId);
+            const value = parseInt(cb.dataset.value);
+            this.selectedMortgages.push(propId);
+            totalValue += value;
+            
+            cb.closest('.mortgage-property').classList.add('selected');
+        });
+        
+        // Deseleccionar no marcados
+        this.mortgageProperties.querySelectorAll('.mortgage-checkbox:not(:checked)').forEach(cb => {
+            cb.closest('.mortgage-property').classList.remove('selected');
+        });
+        
+        this.mortgageAmount.textContent = totalValue;
+        
+        const needed = parseInt(this.neededAmount.textContent);
+        this.confirmMortgage.disabled = totalValue < needed;
+    }
+    
+    processMortgage() {
+        if (this.selectedMortgages.length === 0) return;
+        
+        this.socket.emit('mortgageProperties', {
+            roomCode: this.currentRoom.code,
+            properties: this.selectedMortgages
+        });
+        
+        this.mortgageModal.classList.add('hidden');
     }
 }
 

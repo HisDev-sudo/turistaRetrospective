@@ -291,10 +291,122 @@ input:focus {
 .sidebar {
     width: 320px;
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-    padding: 1.5rem;
+    padding: 0;
     overflow-y: auto;
     box-shadow: -5px 0 20px rgba(0,0,0,0.15);
     border-left: 3px solid #667eea;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-tabs {
+    display: flex;
+    background: #667eea;
+    border-bottom: 2px solid #5a67d8;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 0.8rem 0.5rem;
+    border: none;
+    background: transparent;
+    color: white;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    border-bottom: 3px solid transparent;
+}
+
+.tab-btn.active {
+    background: rgba(255,255,255,0.2);
+    border-bottom-color: #ffd700;
+}
+
+.tab-btn:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+.tab-content {
+    flex: 1;
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+.tab-panel {
+    display: none;
+}
+
+.tab-panel.active {
+    display: block;
+}
+
+.property-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.8rem;
+    margin: 0.5rem 0;
+    background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+    border-radius: 8px;
+    border-left: 4px solid #48bb78;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.property-item.mortgaged {
+    border-left-color: #ed8936;
+    opacity: 0.7;
+}
+
+.property-info {
+    flex: 1;
+}
+
+.property-name {
+    font-weight: bold;
+    color: #2d3748;
+}
+
+.property-rent {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.property-value {
+    font-weight: bold;
+    color: #48bb78;
+}
+
+.mortgage-property {
+    display: flex;
+    align-items: center;
+    padding: 0.8rem;
+    margin: 0.5rem 0;
+    background: #f7fafc;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.mortgage-property:hover {
+    border-color: #667eea;
+}
+
+.mortgage-property.selected {
+    border-color: #48bb78;
+    background: #f0fff4;
+}
+
+.mortgage-checkbox {
+    margin-right: 0.8rem;
+}
+
+.mortgage-info {
+    background: #f7fafc;
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+    border-left: 4px solid #667eea;
 }
 
 .players-info, .game-log {
@@ -345,13 +457,14 @@ input:focus {
 }
 
 .game-messages {
-    max-height: 300px;
+    height: 400px;
     overflow-y: auto;
     background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
     padding: 0.8rem;
     border-radius: 12px;
     border: 2px solid #e2e8f0;
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+    scroll-behavior: smooth;
 }
 
 .game-message {

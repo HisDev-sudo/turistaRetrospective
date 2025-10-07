@@ -106,6 +106,7 @@ function createRoom(hostName, socketId) {
             position: 0,
             money: 15000,
             properties: [],
+            mortgaged: [],
             isHost: true,
             color: '#FF6B6B',
             jailed: false
@@ -149,6 +150,7 @@ io.on('connection', (socket) => {
             position: 0,
             money: 15000,
             properties: [],
+            mortgaged: [],
             isHost: false,
             color: colors[room.players.length],
             jailed: false
@@ -316,6 +318,57 @@ io.on('connection', (socket) => {
             });
         }
     });
+    
+    socket.on('mortgageProperties', ({ roomCode, properties }) => {
+        const room = rooms.get(roomCode);
+        if (!room) return;
+        
+        const player = room.players.find(p => p.id === socket.id);
+        if (!player) return;
+        
+        let totalValue = 0;
+        properties.forEach(propId => {
+            if (player.properties.includes(propId) && !player.mortgaged.includes(propId)) {
+                const property = boardSpaces[propId];
+                const mortgageValue = Math.floor(property.price / 2);
+                totalValue += mortgageValue;
+                player.mortgaged.push(propId);
+            }
+        });
+        
+        player.money += totalValue;
+        
+        io.to(roomCode).emit('propertiesMortgaged', {
+            player,
+            properties,
+            amount: totalValue,
+            room
+        });
+    });
+    
+    function checkNegativeMoney(room, player) {
+        if (player.money < 0) {
+            const availableProperties = player.properties.filter(propId => 
+                !player.mortgaged.includes(propId)
+            );
+            
+            if (availableProperties.length > 0) {
+                io.to(player.id).emit('needMortgage', {
+                    neededAmount: Math.abs(player.money),
+                    availableProperties
+                });
+                return false; // Bloquear hasta que hipoteque
+            } else {
+                // Jugador en bancarrota
+                io.to(room.code).emit('playerBankrupt', {
+                    player: player.name,
+                    room
+                });
+                return true;
+            }
+        }
+        return true;
+    }
 
     socket.on('disconnect', () => {
         console.log('Usuario desconectado:', socket.id);
