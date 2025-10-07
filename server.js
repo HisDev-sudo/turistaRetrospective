@@ -335,12 +335,18 @@ io.on('connection', (socket) => {
 
     socket.on('buyProperty', (roomCode) => {
         const room = rooms.get(roomCode);
-        if (!room) return;
+        if (!room || room.gameState !== 'playing') return;
 
         const player = room.players.find(p => p.id === socket.id);
+        if (!player) return;
+        
         const currentSpace = boardSpaces[player.position];
-
-        if (currentSpace.type === 'property' && player.money >= currentSpace.price) {
+        
+        // Verificar que sea una propiedad, tenga dinero suficiente y no tenga dueño
+        if (currentSpace.type === 'property' && 
+            player.money >= currentSpace.price &&
+            !room.players.some(p => p.properties.includes(currentSpace.id))) {
+            
             player.money -= currentSpace.price;
             player.properties.push(currentSpace.id);
             
