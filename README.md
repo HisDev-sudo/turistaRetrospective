@@ -84,3 +84,5 @@ npm run dev
 - [ ] Estadísticas de partidas
 
 ¡Domina el mundo empresarial! 🚀
+
+<!-- Deployment trigger -->
