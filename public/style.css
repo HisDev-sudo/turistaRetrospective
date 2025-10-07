@@ -201,7 +201,6 @@ input:focus {
     border: 2px solid #667eea;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
 }
 
 .right-panel h3 {
@@ -345,6 +344,7 @@ input:focus {
 
 .game-messages {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
     padding: 0.8rem;
