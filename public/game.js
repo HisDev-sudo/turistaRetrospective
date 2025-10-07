@@ -36,6 +36,8 @@ class MonopolyGame {
         this.rollDiceBtn = document.getElementById('rollDiceBtn');
         this.diceResult = document.getElementById('diceResult');
         this.buyPropertyBtn = document.getElementById('buyPropertyBtn');
+        this.skipPropertyBtn = document.getElementById('skipPropertyBtn');
+        this.propertyActions = document.getElementById('propertyActions');
         this.gamePlayersList = document.getElementById('gamePlayersList');
         this.gameMessages = document.getElementById('gameMessages');
         
@@ -89,6 +91,7 @@ class MonopolyGame {
         });
         
         this.buyPropertyBtn.addEventListener('click', () => this.buyProperty());
+        this.skipPropertyBtn.addEventListener('click', () => this.skipProperty());
         
         // Modal events
         this.closeModal.addEventListener('click', () => this.hideSpaceModal());
@@ -159,7 +162,14 @@ class MonopolyGame {
             this.updateGamePlayers();
             this.updateMyProperties();
             this.addGameMessage(`🏠 ${data.player.name} compró ${data.property.name} por $${data.property.price}`, true);
-            this.buyPropertyBtn.classList.add('hidden');
+        });
+        
+        this.socket.on('turnCompleted', (data) => {
+            this.currentRoom = data.room;
+            this.currentPlayer = this.currentRoom.players.find(p => p.id === this.socket.id);
+            this.updateGamePlayers();
+            this.updateCurrentPlayer();
+            this.propertyActions.classList.add('hidden');
         });
 
         this.socket.on('playerLeft', (data) => {
@@ -275,6 +285,10 @@ class MonopolyGame {
 
     buyProperty() {
         this.socket.emit('buyProperty', this.currentRoom.code);
+    }
+    
+    skipProperty() {
+        this.socket.emit('skipProperty', this.currentRoom.code);
     }
 
     showHome() {
@@ -439,8 +453,8 @@ class MonopolyGame {
             this.rollDiceBtn.classList.add('hidden');
         }
         
-        // Ocultar botón de compra
-        this.buyPropertyBtn.classList.add('hidden');
+        // Ocultar botones de compra
+        this.propertyActions.classList.add('hidden');
     }
 
     updateGameState(data) {
@@ -458,16 +472,17 @@ class MonopolyGame {
             this.diceResult.innerHTML = '🚫 Turno perdido';
         }
         
-        // Mostrar botón de compra si es aplicable
+        // Mostrar botones de compra si es aplicable
         const currentPlayer = this.currentRoom.players.find(p => p.id === this.socket.id);
         if (currentPlayer && data.player.id === this.socket.id) {
             const currentSpace = this.currentRoom.board[currentPlayer.position];
             if (currentSpace.type === 'property' && 
                 currentPlayer.money >= currentSpace.price &&
                 !this.currentRoom.players.some(p => p.properties.includes(currentSpace.id))) {
-                this.buyPropertyBtn.classList.remove('hidden');
+                this.propertyActions.classList.remove('hidden');
+                this.rollDiceBtn.classList.add('hidden'); // Ocultar dados hasta decidir
             } else {
-                this.buyPropertyBtn.classList.add('hidden');
+                this.propertyActions.classList.add('hidden');
             }
         }
     }

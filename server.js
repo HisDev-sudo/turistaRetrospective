@@ -118,7 +118,9 @@ function createRoom(hostName, socketId) {
         turnCount: 0,
         individualTurnCount: 0, // Contador individual de turnos
         mortgageQueue: [], // {propertyId, ownerId, turnMortgaged}
-        activeAuctionTimer: null // Referencia al timer activo
+        activeAuctionTimer: null, // Referencia al timer activo
+        turnState: 'waiting_dice', // 'waiting_dice', 'waiting_purchase_decision', 'turn_complete'
+        pendingPurchase: null // {playerId, propertyId}
     };
     rooms.set(roomCode, room);
     return room;
@@ -308,21 +310,24 @@ io.on('connection', (socket) => {
             currentPlayer.jailed = true;
         }
 
-        // Incrementar contador individual de turnos
-        room.individualTurnCount++;
-        
-        // Siguiente turno - saltar jugadores eliminados
-        do {
-            room.currentPlayer = (room.currentPlayer + 1) % room.players.length;
-        } while (room.players[room.currentPlayer].eliminated);
-        
-        // Incrementar contador de rondas cuando vuelve al primer jugador
-        if (room.currentPlayer === 0) {
-            room.turnCount++;
+        // Verificar si puede comprar propiedad
+        if (currentSpace.type === 'property') {
+            const owner = room.players.find(p => p.properties.includes(currentSpace.id));
+            if (!owner && currentPlayer.money >= currentSpace.price) {
+                // Esperar decisión de compra
+                room.turnState = 'waiting_purchase_decision';
+                room.pendingPurchase = {
+                    playerId: currentPlayer.id,
+                    propertyId: currentSpace.id
+                };
+            } else {
+                // No puede comprar, continuar turno
+                completeTurn(room);
+            }
+        } else {
+            // No es propiedad, continuar turno
+            completeTurn(room);
         }
-        
-        // Verificar subastas después de cada turno individual
-        checkAuctions(room);
 
         io.to(roomCode).emit('diceRolled', { 
             dice1, dice2, total, 
@@ -335,16 +340,15 @@ io.on('connection', (socket) => {
 
     socket.on('buyProperty', (roomCode) => {
         const room = rooms.get(roomCode);
-        if (!room || room.gameState !== 'playing') return;
+        if (!room || room.gameState !== 'playing' || room.turnState !== 'waiting_purchase_decision') return;
 
         const player = room.players.find(p => p.id === socket.id);
-        if (!player) return;
+        if (!player || !room.pendingPurchase || room.pendingPurchase.playerId !== player.id) return;
         
-        const currentSpace = boardSpaces[player.position];
+        const currentSpace = boardSpaces[room.pendingPurchase.propertyId];
         
-        // Verificar que sea una propiedad, tenga dinero suficiente y no tenga dueño
-        if (currentSpace.type === 'property' && 
-            player.money >= currentSpace.price &&
+        // Verificar que tenga dinero suficiente y no tenga dueño
+        if (player.money >= currentSpace.price &&
             !room.players.some(p => p.properties.includes(currentSpace.id))) {
             
             player.money -= currentSpace.price;
@@ -356,6 +360,20 @@ io.on('connection', (socket) => {
                 room 
             });
         }
+        
+        // Completar turno después de la compra
+        completeTurn(room);
+    });
+    
+    socket.on('skipProperty', (roomCode) => {
+        const room = rooms.get(roomCode);
+        if (!room || room.gameState !== 'playing' || room.turnState !== 'waiting_purchase_decision') return;
+
+        const player = room.players.find(p => p.id === socket.id);
+        if (!player || !room.pendingPurchase || room.pendingPurchase.playerId !== player.id) return;
+        
+        // Completar turno sin comprar
+        completeTurn(room);
     });
     
     socket.on('placeBid', ({ roomCode, amount }) => {
@@ -507,6 +525,31 @@ io.on('connection', (socket) => {
                 room
             });
         }
+    }
+    
+    function completeTurn(room) {
+        // Incrementar contador individual de turnos
+        room.individualTurnCount++;
+        
+        // Limpiar estado de turno
+        room.turnState = 'waiting_dice';
+        room.pendingPurchase = null;
+        
+        // Siguiente turno - saltar jugadores eliminados
+        do {
+            room.currentPlayer = (room.currentPlayer + 1) % room.players.length;
+        } while (room.players[room.currentPlayer].eliminated);
+        
+        // Incrementar contador de rondas cuando vuelve al primer jugador
+        if (room.currentPlayer === 0) {
+            room.turnCount++;
+        }
+        
+        // Verificar subastas después de cada turno individual
+        checkAuctions(room);
+        
+        // Notificar cambio de turno
+        io.to(room.code).emit('turnCompleted', { room });
     }
     
     function checkAuctions(room) {

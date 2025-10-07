@@ -70,7 +70,10 @@
                             <div id="currentPlayerInfo"></div>
                             <button id="rollDiceBtn" class="btn primary" onclick="window.game && window.game.rollDice()">🎲 Lanzar Dados</button>
                             <div id="diceResult"></div>
-                            <button id="buyPropertyBtn" class="btn success hidden">💰 Comprar</button>
+                            <div id="propertyActions" class="hidden">
+                                <button id="buyPropertyBtn" class="btn success">💰 Comprar</button>
+                                <button id="skipPropertyBtn" class="btn secondary">❌ No Comprar</button>
+                            </div>
                         </div>
                     </div>
                 </div>
