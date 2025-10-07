@@ -113,6 +113,34 @@
                 <button id="confirmMortgage" class="btn primary" disabled>Confirmar Hipoteca</button>
             </div>
         </div>
+        
+        <!-- Modal de subasta -->
+        <div id="auctionModal" class="modal hidden">
+            <div class="modal-content auction-modal">
+                <h2>🔨 Subasta en Curso</h2>
+                <div class="auction-info">
+                    <h3 id="auctionProperty"></h3>
+                    <div class="auction-details">
+                        <div class="current-bid">
+                            <span>Oferta actual:</span>
+                            <span id="currentBid" class="bid-amount">$0</span>
+                        </div>
+                        <div class="highest-bidder">
+                            <span>Mayor ofertante:</span>
+                            <span id="highestBidder">Ninguno</span>
+                        </div>
+                        <div class="time-left">
+                            <span>Tiempo restante:</span>
+                            <span id="timeLeft" class="timer">30s</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="bid-controls">
+                    <input type="number" id="bidAmount" placeholder="Tu oferta" min="0" step="100">
+                    <button id="placeBid" class="btn primary">Ofertar</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>

@@ -409,6 +409,97 @@ input:focus {
     border-left: 4px solid #667eea;
 }
 
+/* Subasta */
+.auction-modal {
+    max-width: 600px;
+}
+
+.auction-info {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.auction-info h3 {
+    color: #2d3748;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.auction-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.auction-details > div {
+    background: #f7fafc;
+    padding: 1rem;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.bid-amount {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #48bb78;
+}
+
+.timer {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #ed8936;
+}
+
+.timer.urgent {
+    color: #e53e3e;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.bid-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    justify-content: center;
+}
+
+.bid-controls input {
+    flex: 1;
+    max-width: 200px;
+    padding: 0.8rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+.bid-controls input:focus {
+    border-color: #667eea;
+    outline: none;
+}
+
+.auction-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #667eea;
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 2000;
+    animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
 .players-info, .game-log {
     margin-bottom: 2rem;
 }

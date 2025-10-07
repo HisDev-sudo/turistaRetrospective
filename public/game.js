@@ -60,6 +60,16 @@ class MonopolyGame {
         this.confirmMortgage = document.getElementById('confirmMortgage');
         this.selectedMortgages = [];
         
+        // Modal de subasta
+        this.auctionModal = document.getElementById('auctionModal');
+        this.auctionProperty = document.getElementById('auctionProperty');
+        this.currentBid = document.getElementById('currentBid');
+        this.highestBidder = document.getElementById('highestBidder');
+        this.timeLeft = document.getElementById('timeLeft');
+        this.bidAmount = document.getElementById('bidAmount');
+        this.placeBid = document.getElementById('placeBid');
+        this.currentAuction = null;
+        
         // Debug
         console.log('Botón de dados encontrado:', this.rollDiceBtn);
     }
@@ -93,6 +103,12 @@ class MonopolyGame {
         
         // Mortgage events
         this.confirmMortgage.addEventListener('click', () => this.processMortgage());
+        
+        // Auction events
+        this.placeBid.addEventListener('click', () => this.submitBid());
+        this.bidAmount.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.submitBid();
+        });
         
         // Enter key handlers
         this.playerNameInput.addEventListener('keypress', (e) => {
@@ -162,6 +178,29 @@ class MonopolyGame {
         
         this.socket.on('playerBankrupt', (data) => {
             this.addGameMessage(`💸 ${data.player} está en bancarrota y sale del juego`, true);
+        });
+        
+        this.socket.on('auctionStarted', (data) => {
+            this.currentAuction = data.auction;
+            this.showAuctionModal();
+            this.addGameMessage(data.message, true);
+        });
+        
+        this.socket.on('newBid', (data) => {
+            this.updateAuctionDisplay(data);
+            this.addGameMessage(`💰 ${data.bidder} ofrece $${data.amount}`, true);
+        });
+        
+        this.socket.on('auctionUpdate', (data) => {
+            this.updateAuctionTimer(data.timeLeft);
+        });
+        
+        this.socket.on('auctionEnded', (data) => {
+            this.hideAuctionModal();
+            this.currentRoom = data.room;
+            this.updateGamePlayers();
+            this.updateMyProperties();
+            this.addGameMessage(data.message, true);
         });
 
         this.socket.on('error', (message) => {
@@ -602,6 +641,87 @@ class MonopolyGame {
         });
         
         this.mortgageModal.classList.add('hidden');
+    }
+    
+    showAuctionModal() {
+        if (!this.currentAuction) return;
+        
+        this.auctionProperty.textContent = this.currentAuction.propertyName;
+        this.currentBid.textContent = `$${this.currentAuction.currentBid}`;
+        this.highestBidder.textContent = this.currentAuction.highestBidder ? 
+            this.currentRoom.players.find(p => p.id === this.currentAuction.highestBidder)?.name || 'Desconocido' : 
+            'Ninguno';
+        this.timeLeft.textContent = `${this.currentAuction.timeLeft}s`;
+        
+        // Configurar oferta mínima
+        this.bidAmount.min = this.currentAuction.currentBid + 100;
+        this.bidAmount.placeholder = `Mínimo: $${this.currentAuction.currentBid + 100}`;
+        this.bidAmount.value = '';
+        
+        this.auctionModal.classList.remove('hidden');
+    }
+    
+    hideAuctionModal() {
+        this.auctionModal.classList.add('hidden');
+        this.currentAuction = null;
+    }
+    
+    updateAuctionDisplay(data) {
+        if (!this.currentAuction) return;
+        
+        this.currentAuction = data.auction;
+        this.currentBid.textContent = `$${data.amount}`;
+        this.highestBidder.textContent = data.bidder;
+        
+        // Actualizar oferta mínima
+        this.bidAmount.min = data.amount + 100;
+        this.bidAmount.placeholder = `Mínimo: $${data.amount + 100}`;
+        this.bidAmount.value = '';
+    }
+    
+    updateAuctionTimer(timeLeft) {
+        this.timeLeft.textContent = `${timeLeft}s`;
+        
+        // Agregar clase urgente si quedan menos de 10 segundos
+        if (timeLeft <= 10) {
+            this.timeLeft.classList.add('urgent');
+        } else {
+            this.timeLeft.classList.remove('urgent');
+        }
+    }
+    
+    submitBid() {
+        if (!this.currentAuction || !this.currentPlayer) return;
+        
+        const amount = parseInt(this.bidAmount.value);
+        const minBid = this.currentAuction.currentBid + 100;
+        
+        if (!amount || amount < minBid) {
+            alert(`La oferta mínima es $${minBid}`);
+            return;
+        }
+        
+        if (amount > this.currentPlayer.money) {
+            alert('No tienes suficiente dinero para esta oferta');
+            return;
+        }
+        
+        this.socket.emit('placeBid', {
+            roomCode: this.currentRoom.code,
+            amount: amount
+        });
+    }
+    
+    showAuctionNotification(message) {
+        const notification = document.createElement('div');
+        notification.className = 'auction-notification';
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.remove();
+        }, 5000);
     }
 }
 
