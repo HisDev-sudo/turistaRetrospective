@@ -192,7 +192,7 @@ io.on('connection', (socket) => {
 
     socket.on('rollDice', (roomCode) => {
         const room = rooms.get(roomCode);
-        if (!room || room.gameState !== 'playing') return;
+        if (!room || room.gameState !== 'playing' || room.turnState !== 'waiting_dice') return;
 
         const currentPlayer = room.players[room.currentPlayer];
         if (currentPlayer.id !== socket.id) return;
