@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monopoly Corporativo</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Pantalla de inicio -->
+        <div id="homeScreen" class="screen active">
+            <div class="container">
+                <h1>🏢 Monopoly Corporativo</h1>
+                <p>¡Domina el mundo empresarial!</p>
+                
+                <div class="form-group">
+                    <input type="text" id="playerName" placeholder="Tu nombre" maxlength="15">
+                </div>
+                
+                <div class="buttons">
+                    <button id="createRoomBtn" class="btn primary">Crear Sala</button>
+                    <button id="joinRoomBtn" class="btn secondary">Unirse a Sala</button>
+                </div>
+                
+                <div id="joinRoomForm" class="form-group hidden">
+                    <input type="text" id="roomCode" placeholder="Código de sala" maxlength="6">
+                    <button id="joinBtn" class="btn">Unirse</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pantalla de sala -->
+        <div id="lobbyScreen" class="screen">
+            <div class="container">
+                <h2>Sala: <span id="roomCodeDisplay"></span></h2>
+                
+                <div class="players-list">
+                    <h3>Jugadores:</h3>
+                    <div id="playersList"></div>
+                </div>
+                
+                <div class="lobby-actions">
+                    <button id="startGameBtn" class="btn primary hidden">Iniciar Juego</button>
+                    <button id="leaveRoomBtn" class="btn secondary">Salir</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pantalla de juego -->
+        <div id="gameScreen" class="screen">
+            <div class="game-container">
+                <!-- Tablero -->
+                <div id="gameBoard" class="board">
+                    <div class="board-center">
+                        <div class="game-info">
+                            <div id="currentPlayerInfo"></div>
+                            <button id="rollDiceBtn" class="btn primary" onclick="window.game && window.game.rollDice()">🎲 Lanzar Dados</button>
+                            <div id="diceResult"></div>
+                            <button id="buyPropertyBtn" class="btn success hidden">💰 Comprar</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Panel lateral -->
+                <div class="sidebar">
+                    <div class="players-info">
+                        <h3>Jugadores</h3>
+                        <div id="gamePlayersList"></div>
+                    </div>
+                    
+                    <div class="game-log">
+                        <h3>📋 Actividad del Juego</h3>
+                        <div id="gameMessages"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Modal para vista ampliada de casillas -->
+        <div id="spaceModal" class="modal hidden">
+            <div class="modal-content">
+                <span class="close-modal">&times;</span>
+                <div class="modal-space-image"></div>
+                <div class="modal-space-info">
+                    <h2 id="modalSpaceName"></h2>
+                    <div id="modalSpaceDetails"></div>
+                    <div id="modalSpaceOwner"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
