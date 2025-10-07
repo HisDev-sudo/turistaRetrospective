@@ -85,4 +85,4 @@ npm run dev
 
 ¡Domina el mundo empresarial! 🚀
 
-<!-- Deployment trigger -->
+<!-- Deployment trigger v2 -->
