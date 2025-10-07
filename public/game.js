@@ -96,10 +96,8 @@ class MonopolyGame {
             if (e.target === this.spaceModal) this.hideSpaceModal();
         });
         
-        // Tab events
-        this.tabBtns.forEach(btn => {
-            btn.addEventListener('click', () => this.switchTab(btn.dataset.tab));
-        });
+        // Actualizar propiedades automáticamente
+        this.updateMyProperties();
         
         // Mortgage events
         this.confirmMortgage.addEventListener('click', () => this.processMortgage());
@@ -147,14 +145,19 @@ class MonopolyGame {
 
         this.socket.on('diceRolled', (data) => {
             this.currentRoom = data.room;
+            this.currentPlayer = this.currentRoom.players.find(p => p.id === this.socket.id);
             this.updateGameState(data);
+            this.updateMyProperties();
             const isImportant = data.message.includes('Carta') || data.message.includes('Cafecito') || data.message.includes('Detención');
             this.addGameMessage(data.message, isImportant);
         });
 
         this.socket.on('propertyBought', (data) => {
             this.currentRoom = data.room;
+            // Actualizar currentPlayer
+            this.currentPlayer = this.currentRoom.players.find(p => p.id === this.socket.id);
             this.updateGamePlayers();
+            this.updateMyProperties();
             this.addGameMessage(`🏠 ${data.player.name} compró ${data.property.name} por $${data.property.price}`, true);
             this.buyPropertyBtn.classList.add('hidden');
         });
@@ -171,6 +174,7 @@ class MonopolyGame {
         
         this.socket.on('propertiesMortgaged', (data) => {
             this.currentRoom = data.room;
+            this.currentPlayer = this.currentRoom.players.find(p => p.id === this.socket.id);
             this.updateGamePlayers();
             this.updateMyProperties();
             this.addGameMessage(`💰 ${data.player.name} hipotecó propiedades por $${data.amount}`, true);
@@ -198,6 +202,7 @@ class MonopolyGame {
         this.socket.on('auctionEnded', (data) => {
             this.hideAuctionModal();
             this.currentRoom = data.room;
+            this.currentPlayer = this.currentRoom.players.find(p => p.id === this.socket.id);
             this.updateGamePlayers();
             this.updateMyProperties();
             this.addGameMessage(data.message, true);
@@ -525,35 +530,25 @@ class MonopolyGame {
         this.spaceModal.classList.add('hidden');
     }
     
-    switchTab(tabName) {
-        // Actualizar botones
-        this.tabBtns.forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.tab === tabName);
-        });
-        
-        // Actualizar paneles
-        this.tabPanels.forEach(panel => {
-            panel.classList.toggle('active', panel.id === tabName + 'Tab');
-        });
-        
-        // Actualizar contenido si es necesario
-        if (tabName === 'properties') {
-            this.updateMyProperties();
-        }
-    }
+
     
     updateMyProperties() {
-        if (!this.currentPlayer) return;
+        if (!this.currentRoom || !this.currentPlayer) {
+            this.myProperties.innerHTML = '<p style="text-align: center; color: #666; padding: 1rem;">Cargando...</p>';
+            return;
+        }
         
         this.myProperties.innerHTML = '';
         
-        if (this.currentPlayer.properties.length === 0) {
-            this.myProperties.innerHTML = '<p style="text-align: center; color: #666; padding: 2rem;">No tienes propiedades aún</p>';
+        if (!this.currentPlayer.properties || this.currentPlayer.properties.length === 0) {
+            this.myProperties.innerHTML = '<p style="text-align: center; color: #666; padding: 1rem; font-size: 0.9rem;">No tienes propiedades aún</p>';
             return;
         }
         
         this.currentPlayer.properties.forEach(propId => {
             const property = this.currentRoom.board[propId];
+            if (!property) return;
+            
             const isMortgaged = this.currentPlayer.mortgaged && this.currentPlayer.mortgaged.includes(propId);
             
             const propDiv = document.createElement('div');

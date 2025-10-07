@@ -50,7 +50,20 @@
         <!-- Pantalla de juego -->
         <div id="gameScreen" class="screen">
             <div class="game-container">
-                <!-- Tablero -->
+                <!-- Panel izquierdo -->
+                <div class="left-panel">
+                    <div class="players-section">
+                        <h3>👥 Jugadores</h3>
+                        <div id="gamePlayersList"></div>
+                    </div>
+                    
+                    <div class="properties-section">
+                        <h3>🏠 Mis Propiedades</h3>
+                        <div id="myProperties"></div>
+                    </div>
+                </div>
+                
+                <!-- Tablero central -->
                 <div id="gameBoard" class="board">
                     <div class="board-center">
                         <div class="game-info">
@@ -62,27 +75,10 @@
                     </div>
                 </div>
                 
-                <!-- Panel lateral -->
-                <div class="sidebar">
-                    <div class="sidebar-tabs">
-                        <button class="tab-btn active" data-tab="players">👥 Jugadores</button>
-                        <button class="tab-btn" data-tab="properties">🏠 Mis Propiedades</button>
-                        <button class="tab-btn" data-tab="activity">📋 Actividad</button>
-                    </div>
-                    
-                    <div class="tab-content">
-                        <div id="playersTab" class="tab-panel active">
-                            <div id="gamePlayersList"></div>
-                        </div>
-                        
-                        <div id="propertiesTab" class="tab-panel">
-                            <div id="myProperties"></div>
-                        </div>
-                        
-                        <div id="activityTab" class="tab-panel">
-                            <div id="gameMessages"></div>
-                        </div>
-                    </div>
+                <!-- Panel derecho -->
+                <div class="right-panel">
+                    <h3>📋 Actividad del Juego</h3>
+                    <div id="gameMessages"></div>
                 </div>
             </div>
         </div>
